@@ -72,40 +72,43 @@ def generate_colored_nongaussian_data(means, lambdas, thetas, Ns, distribution='
 #### From least_squares_binary_classifier.ipynb
 ############################################################
 
-def solve_plot_ls_nm_classifier(x, labels, w_norm=False):
+def solve_plot_ls_nm_classifier(x, labels, w_norm=False, class_labels=[1,2], class_names=['class 0', 'class 1']):
     ## LS classifier
-    N = x.shape[0]
-    X_tilde = np.ones((N, 3))   ## the feature vector is dimension 2, and this is the extended version   
+    N, D = x.shape
+    X_tilde = np.ones((N, D + 1))   ## the feature vector is dimension 2, and this is the extended version   
     X_tilde[:, 1:] = x          ## the first column is all 1s, this sets the rest of each row to the data samples
     y = (-1.0) ** (labels + 1)        ## (-1)^(1 + 1) = +1 and (-1)^(2+1) = -1, maps class 1 and class 2 to +1, -1, resp.
     w_ls, Re, rank, singular_vals = np.linalg.lstsq(X_tilde, y, rcond=None)
 
     ## Nearest Means Classifier:
-    x_1 = x[labels==1]
-    x_2 = x[labels==2]
+    x_1 = x[class_labels[0]]
+    x_2 = x[class_labels[1]]
     mu1 = np.mean(x_1, axis=0)
     mu2 = np.mean(x_2, axis=0)
-    w_nm = np.ones(3)
+    w_nm = np.ones(D + 1)
     w_nm[0] = 0.5 * (np.dot(mu2, mu2) - np.dot(mu1, mu1))
     w_nm[1:] = mu1 - mu2
 
-    plt.figure(figsize=(8, 8))
-    LIMIT = np.max(x)
-    x_plot = np.arange(-1 * LIMIT, LIMIT, 0.01)
-    plt.scatter(x_1.T[0], x_1.T[1], fc=(0, 0, 1, 0.5), label='class 1')
-    plt.scatter(x_2.T[0], x_2.T[1], fc=(1, 0, 0, 0.5), label='class 2')
-    ## plot the decision boundaries which is g(x) = 0
-    plt.plot( x_plot, -1 * ( w_ls[1] *  x_plot  + w_ls[0] ) / w_ls[2], linewidth=3, c='k', label='LS boundary')
-    plt.plot( x_plot, -1 * ( w_nm[1] *  x_plot  + w_nm[0] ) / w_nm[2], linewidth=3, c='g', label='NM boundary')
-    plt.xlabel('x1')
-    plt.ylabel('x2')
-    plt.xlim([-LIMIT, LIMIT])
-    plt.ylim([-LIMIT, LIMIT])
-    plt.legend()
-    plt.grid(':')
+    if D == 2:
+
+        plt.figure(figsize=(8, 8))
+        LIMIT = np.max(x)
+        x_plot = np.arange(-1 * LIMIT, LIMIT, 0.01)
+        plt.scatter(x_1.T[0], x_1.T[1], fc=(0, 0, 1, 0.5), label=class_names[0])
+        plt.scatter(x_2.T[0], x_2.T[1], fc=(1, 0, 0, 0.5), label=class_names[1])
+        ## plot the decision boundaries which is g(x) = 0
+        plt.plot( x_plot, -1 * ( w_ls[1] *  x_plot  + w_ls[0] ) / w_ls[2], linewidth=3, c='k', label='LS boundary')
+        plt.plot( x_plot, -1 * ( w_nm[1] *  x_plot  + w_nm[0] ) / w_nm[2], linewidth=3, c='g', label='NM boundary')
+        plt.xlabel('x1')
+        plt.ylabel('x2')
+        plt.xlim([-LIMIT, LIMIT])
+        plt.ylim([-LIMIT, LIMIT])
+        plt.legend()
+        plt.grid(':')
 
     fig, ax = plt.subplots(1, 2, sharex=False, figsize=(18, 4))
     titles = ['Least Squares Classifier Discriminant Histogram', 'Nearest Meanss Classifier Discriminant Histogram']
+    error_rates = np.zeros(2)
     for i, w in enumerate([w_ls, w_nm]):
         g1 = x_1 @ w[1:] + w[0] ## discriminate function values for all data in class 1
         g2 = x_2 @ w[1:] + w[0] ## discriminate function values for all data in class 2
@@ -115,11 +118,12 @@ def solve_plot_ls_nm_classifier(x, labels, w_norm=False):
             xlabel = r'discriminant function $g({\bf x}) / \| {\bf w} \|$'
         else:
             xlabel = r'discriminant function $g({\bf x})$'
-        h1 = ax[i].hist(g1, bins = 100, fc=(0, 0, 1, 0.5), label='class 1')
-        h2 = ax[i].hist(g2, bins = 100, fc=(1, 0, 0, 0.5), label='class 2')
+        h1 = ax[i].hist(g1, bins = 100, fc=(0, 0, 1, 0.5), label=class_names[0])
+        h2 = ax[i].hist(g2, bins = 100, fc=(1, 0, 0, 0.5), label=class_names[1])
         N1_errors = np.sum(g1 < 0)  ## error condition:  g > 0 <==> x in Gamma_1
         N2_errors = np.sum(g2 >= 0) ## error condition:  g <= 0 <==> x in Gamma_2
-        error_rate = (N1_errors + N2_errors) / N
+        print(f'N1_errors = {N1_errors}, N2_errors = {N2_errors}')
+        error_rates[i] = (N1_errors + N2_errors) / N
         ax[i].axvline(0, linewidth=0.5, linestyle='dashed', color='k')
         
         ax[i].grid(':')
@@ -128,14 +132,13 @@ def solve_plot_ls_nm_classifier(x, labels, w_norm=False):
         ax[i].set_ylabel('histogram count')
         ax[i].set_title(titles[i])
         peak = np.maximum(np.max(h1[0]), np.max(h2[0]))
-        ax[i].text(0, 0.7 * peak, f'Error rate = {error_rate : 0.3f}% ({N1_errors + N2_errors}/{N})')
+        ax[i].text(0, 0.7 * peak, f'Error rate = {error_rates[i] : 0.3f}% ({N1_errors + N2_errors}/{N})')
     
         # print(f'Error rate = {error_rate : 0.3f}%')
-
-
-    print(f'\nw vector for LS: {w_ls}')
-    print(f'w vector for NM: {w_nm}\n')
-    return w_ls, w_nm
+    if D == 2:
+        print(f'\nw vector for LS: {w_ls}')
+        print(f'w vector for NM: {w_nm}\n')
+    return w_ls, w_nm, error_rates[0], error_rates[1]
 
 ############################################################
 #### From mnist_binary_mse_nmc_linear_classifier.ipynb
