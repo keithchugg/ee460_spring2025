@@ -77,17 +77,21 @@ def solve_plot_ls_nm_classifier(x, labels, w_norm=False, class_labels=[1,2], cla
     N, D = x.shape
     X_tilde = np.ones((N, D + 1))   ## the feature vector is dimension 2, and this is the extended version   
     X_tilde[:, 1:] = x          ## the first column is all 1s, this sets the rest of each row to the data samples
-    y = (-1.0) ** (labels + 1)        ## (-1)^(1 + 1) = +1 and (-1)^(2+1) = -1, maps class 1 and class 2 to +1, -1, resp.
+    y = np.zeros(len(labels))
+    y[labels==class_labels[0]] = +1
+    y[labels==class_labels[1]] = -1
     w_ls, Re, rank, singular_vals = np.linalg.lstsq(X_tilde, y, rcond=None)
 
     ## Nearest Means Classifier:
-    x_1 = x[class_labels[0]]
-    x_2 = x[class_labels[1]]
+    x_1 = x[labels==class_labels[0]]
+    x_2 = x[labels==class_labels[1]]
+
     mu1 = np.mean(x_1, axis=0)
     mu2 = np.mean(x_2, axis=0)
     w_nm = np.ones(D + 1)
     w_nm[0] = 0.5 * (np.dot(mu2, mu2) - np.dot(mu1, mu1))
     w_nm[1:] = mu1 - mu2
+
 
     if D == 2:
 
@@ -122,8 +126,10 @@ def solve_plot_ls_nm_classifier(x, labels, w_norm=False, class_labels=[1,2], cla
         h2 = ax[i].hist(g2, bins = 100, fc=(1, 0, 0, 0.5), label=class_names[1])
         N1_errors = np.sum(g1 < 0)  ## error condition:  g > 0 <==> x in Gamma_1
         N2_errors = np.sum(g2 >= 0) ## error condition:  g <= 0 <==> x in Gamma_2
-        print(f'N1_errors = {N1_errors}, N2_errors = {N2_errors}')
         error_rates[i] = (N1_errors + N2_errors) / N
+        # print(f'N1_errors = {N1_errors}, N2_errors = {N2_errors}')
+        # print(f'error_rate = {error_rates[i]}')
+
         ax[i].axvline(0, linewidth=0.5, linestyle='dashed', color='k')
         
         ax[i].grid(':')
@@ -132,7 +138,7 @@ def solve_plot_ls_nm_classifier(x, labels, w_norm=False, class_labels=[1,2], cla
         ax[i].set_ylabel('histogram count')
         ax[i].set_title(titles[i])
         peak = np.maximum(np.max(h1[0]), np.max(h2[0]))
-        ax[i].text(0, 0.7 * peak, f'Error rate = {error_rates[i] : 0.3f}% ({N1_errors + N2_errors}/{N})')
+        ax[i].text(0, 0.7 * peak, f'Error rate = {100 * error_rates[i] : 0.3f}% ({N1_errors + N2_errors}/{N})')
     
         # print(f'Error rate = {error_rate : 0.3f}%')
     if D == 2:
